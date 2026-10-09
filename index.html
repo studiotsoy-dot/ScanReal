@@ -170,10 +170,13 @@
   <div class="geo-status" id="geoStatus"></div>
 
   <div class="history-actions">
+    <button id="btnGeoDiag" class="btn btn-ghost">Проверить GPS</button>
     <button id="btnExportJson" class="btn btn-ghost">Экспорт JSON</button>
     <button id="btnExportCsv" class="btn btn-ghost">Экспорт CSV</button>
     <button id="btnClearHistory" class="btn btn-ghost">Очистить</button>
   </div>
+
+  <pre id="geoDiag" class="geo-diag hidden"></pre>
 
   <div id="historyList" class="history-list">
     <p class="muted">пока нет записей — включите камеру и наведите на объект</p>

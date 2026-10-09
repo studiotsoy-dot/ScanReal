@@ -1,6 +1,6 @@
-﻿# Сборка ПОДПИСАННОГО APK в облаке GitHub Actions.
-# Подписанный release-APK не блокируется Play Protect (в отличие от debug).
-# Ключ подписи генерируется в самой сборке и не хранится в репозитории.
+# Сборка ПОДПИСАННОГО APK в облаке GitHub Actions.
+# Подписанный release-APK не блокируется Play Protect.
+# Ресурсы (иконки, сплэш) генерируются свои — без логотипа Capacitor.
 
 name: Build Android APK
 
@@ -35,14 +35,21 @@ jobs:
       - name: Собрать веб-часть
         run: npm run build
 
-      - name: Добавить Android-платформу Capacitor
+      - name: Добавить Android-платформу
         run: |
-          npm install @capacitor/core@6 @capacitor/cli@6 @capacitor/android@6 @capacitor/geolocation@6
+          npm install @capacitor/core@6 @capacitor/cli@6 @capacitor/android@6
+          npm install @capacitor/geolocation@6 @capacitor/splash-screen@6
           npx cap add android
           npx cap sync android
 
       - name: Подготовить манифест и подпись
         run: node scripts/patch-manifest.mjs
+
+      - name: Сгенерировать свои иконки и сплэш
+        run: node scripts/android-assets.mjs
+
+      - name: Настроить темы Android
+        run: node scripts/patch-theme.mjs
 
       - name: Создать ключ подписи
         run: |
@@ -53,7 +60,6 @@ jobs:
             -keyalg RSA -keysize 2048 -validity 10000 \
             -storepass scanreal2026 -keypass scanreal2026 \
             -dname "CN=ScanReal, OU=Mobile, O=ScanReal, L=Moscow, C=RU"
-          echo "Ключ создан"
 
       - name: Собрать подписанный APK
         env:
@@ -66,30 +72,27 @@ jobs:
           chmod +x gradlew
           ./gradlew assembleRelease --no-daemon
 
-      - name: Проверить подпись и подписать если нужно
+      - name: Проверить подпись
         run: |
           cd android
           APK=$(find app/build/outputs/apk/release -name "*.apk" | head -1)
-          echo "APK: $APK"
           BT=$(ls "$ANDROID_HOME/build-tools" | sort -V | tail -1)
           SIGNER="$ANDROID_HOME/build-tools/$BT/apksigner"
           if "$SIGNER" verify --print-certs "$APK" > /dev/null 2>&1; then
-            echo "APK уже подписан"
+            echo "APK подписан"
           else
-            echo "Подписываем через apksigner"
             "$SIGNER" sign --ks keystore/scanreal.jks \
               --ks-pass pass:scanreal2026 --key-pass pass:scanreal2026 \
               --ks-key-alias scanreal "$APK"
           fi
-          echo "=== ПОДПИСЬ ==="
-          "$SIGNER" verify --print-certs "$APK" | head -10
+          "$SIGNER" verify --print-certs "$APK" | head -8
 
-      - name: Показать результат
-        run: find android/app/build/outputs/apk -name "*.apk" -exec ls -lh {} \;
+      - name: Дата сборки в имени
+        run: echo "STAMP=$(date +%Y%m%d-%H%M)" >> $GITHUB_ENV
 
-      - name: Загрузить APK как артефакт
+      - name: Загрузить APK
         uses: actions/upload-artifact@v4
         with:
-          name: ScanReal-APK
+          name: ScanReal-APK-${{ env.STAMP }}
           path: android/app/build/outputs/apk/release/*.apk
           if-no-files-found: error

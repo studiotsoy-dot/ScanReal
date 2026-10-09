@@ -6,6 +6,7 @@ import { Detector, ruName } from './detector.js';
 import { Sensors } from './sensors.js';
 import { Sparkline } from './visual.js';
 import { getPosition, geoAvailable, geoLastError, formatCoords, mapLink, mapLinkForSession } from './geo.js';
+import { diagnoseGeo } from './geodiag.js';
 import { ScanHistory, humanTime, formatTime, describeObjects, accuracyText } from './history.js';
 
 /* ------------------------------------------------------------ ССЫЛКИ DOM */
@@ -558,6 +559,29 @@ $('btnClearHistory').addEventListener('click', () => {
   history.clear();
   renderHistory();
   toast('История очищена');
+});
+
+// --- Диагностика GPS: показывает точную причину, если координат нет ---
+$('btnGeoDiag').addEventListener('click', async () => {
+  const box = $('geoDiag');
+  box.classList.remove('hidden');
+  box.textContent = 'Проверяем…';
+  try {
+    const r = await diagnoseGeo();
+    const lines = [
+      'Нативное приложение : ' + (r.isNative ? 'ДА' : 'НЕТ (браузер)'),
+      'Платформа          : ' + r.platform,
+      'Плагин геолокации  : ' + (r.pluginAvailable ? 'ПОДКЛЮЧЁН' : 'НЕ НАЙДЕН'),
+      r.pluginError ? '  ошибка плагина   : ' + r.pluginError : null,
+      'Разрешение         : ' + r.perm,
+      'Браузерный API     : ' + (r.browserApi ? 'доступен' : 'нет'),
+      'Координаты         : ' + (r.result || 'НЕ ПОЛУЧЕНЫ'),
+      r.browserError ? '  ошибка GPS       : ' + r.browserError : null,
+    ].filter(Boolean);
+    box.textContent = lines.join('\n');
+  } catch (e) {
+    box.textContent = 'Ошибка диагностики: ' + e.message;
+  }
 });
 // Панель датчиков: сворачивается в компактную кнопку, состояние запоминается.
 const SENSOR_KEY = 'scanreal.sensors.collapsed';

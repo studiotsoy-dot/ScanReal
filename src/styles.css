@@ -388,6 +388,22 @@ html, body {
 .scan-time { color: var(--cyan); font-variant-numeric: tabular-nums; min-width: 44px; font-weight: 600; }
 .scan-objs { flex: 1; color: var(--text); }
 
+/* Блок диагностики GPS */
+.geo-diag {
+  background: #060a12;
+  border: 1px solid var(--line);
+  border-radius: 11px;
+  padding: 12px 14px;
+  font-family: ui-monospace, "SF Mono", Consolas, monospace;
+  font-size: 11.5px;
+  line-height: 1.75;
+  color: var(--cyan);
+  white-space: pre-wrap;
+  word-break: break-word;
+  margin: 0 0 18px;
+  overflow-x: auto;
+}
+
 /* ----------------------------------------------- АДАПТАЦИЯ / ПК */
 @media (min-width: 760px) {
   .sensor-panel { width: 210px; right: 22px; top: calc(var(--safe-top) + 70px); }
