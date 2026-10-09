@@ -212,10 +212,10 @@ const splashes = [
 ];
 
 splashes.forEach(([folder, w, h]) => {
-  // Рисуем прицел БЕЗ фона: фон задаётся отдельно в XML.
-  // Имя scanreal_target — чтобы не конфликтовать со splash.xml.
-  const png = drawTarget(w, h, { scale: 0.3, withBg: false });
-  save(join(androidRes, folder), 'scanreal_target.png', png);
+  // Готовая картинка нужного размера: тёмный фон + прицел по центру.
+  // Пропорции уже правильные в самом файле — растягивать нечего.
+  const png = drawTarget(w, h, { scale: 0.3, withBg: true });
+  save(join(androidRes, folder), 'splash.png', png);
 });
 
 /* 3. ТЁМНЫЙ ФОН для темы приложения */
