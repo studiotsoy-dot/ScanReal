@@ -1,0 +1,154 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, maximum-scale=1, user-scalable=no" />
+<meta name="theme-color" content="#05070d" />
+<meta name="description" content="ScanReal — сканер реальности: распознавание объектов камерой и данные датчиков в реальном времени." />
+<meta name="mobile-web-app-capable" content="yes" />
+<meta name="apple-mobile-web-app-capable" content="yes" />
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+<meta name="apple-mobile-web-app-title" content="ScanReal" />
+<link rel="manifest" href="./manifest.webmanifest" />
+<link rel="icon" type="image/png" sizes="192x192" href="./icons/icon-192.png" />
+<link rel="apple-touch-icon" href="./icons/icon-192.png" />
+<title>ScanReal — сканер реальности</title>
+<link rel="stylesheet" href="./src/styles.css" />
+</head>
+<body>
+
+<!-- ЭКРАН 1: ЗАГРУЗКА -->
+<div id="boot" class="screen boot active">
+  <div class="boot-inner">
+    <div class="boot-logo">
+      <svg viewBox="0 0 100 100" aria-hidden="true">
+        <circle cx="50" cy="50" r="34" class="ring" />
+        <circle cx="50" cy="50" r="20" class="ring ring2" />
+        <circle cx="50" cy="50" r="5" class="core" />
+        <line x1="50" y1="6"  x2="50" y2="22" class="tick" />
+        <line x1="50" y1="78" x2="50" y2="94" class="tick" />
+        <line x1="6"  y1="50" x2="22" y2="50" class="tick" />
+        <line x1="78" y1="50" x2="94" y2="50" class="tick" />
+      </svg>
+    </div>
+    <h1 class="boot-title">ScanReal</h1>
+    <p class="boot-sub">сканер реальности</p>
+    <div class="boot-bar"><div id="bootFill" class="boot-fill"></div></div>
+    <p id="bootStatus" class="boot-status">инициализация…</p>
+  </div>
+</div>
+
+<!-- ЭКРАН 2: ГЛАВНЫЙ (КАМЕРА) -->
+<div id="app" class="screen app">
+  <video id="video" playsinline muted autoplay></video>
+  <canvas id="overlay"></canvas>
+
+  <!-- Верхний HUD -->
+  <header class="hud-top">
+    <div class="hud-brand">
+      <span class="dot-live"></span>
+      <span id="statusText">камера не активна</span>
+    </div>
+    <div class="hud-fps">
+      <span id="fps">0</span><small>fps</small>
+    </div>
+  </header>
+
+  <!-- Правая панель датчиков -->
+  <aside id="sensorPanel" class="sensor-panel">
+    <div class="sp-head">
+      <span>ДАТЧИКИ</span>
+      <button id="toggleSensors" class="sp-toggle" aria-label="Свернуть датчики">–</button>
+    </div>
+
+    <div class="sp-body" id="spBody">
+      <div class="sp-item">
+        <div class="sp-label">Наклон (акселерометр)</div>
+        <div class="sp-vals">
+          <span>X <b id="accX">0.00</b></span>
+          <span>Y <b id="accY">0.00</b></span>
+          <span>Z <b id="accZ">0.00</b></span>
+        </div>
+        <canvas class="spark" id="sparkAcc"></canvas>
+      </div>
+
+      <div class="sp-item">
+        <div class="sp-label">Вращение (гироскоп)</div>
+        <div class="sp-vals">
+          <span>α <b id="gyroA">0</b></span>
+          <span>β <b id="gyroB">0</b></span>
+          <span>γ <b id="gyroG">0</b></span>
+        </div>
+        <canvas class="spark" id="sparkGyro"></canvas>
+      </div>
+
+      <div class="sp-item">
+        <div class="sp-label">Компас</div>
+        <div class="sp-compass">
+          <div class="sp-needle" id="needle"></div>
+          <div class="sp-deg"><b id="heading">—</b>°</div>
+        </div>
+      </div>
+
+      <div class="sp-item">
+        <div class="sp-label">Освещённость</div>
+        <div class="sp-bar"><div class="sp-bar-fill" id="lightFill"></div></div>
+        <div class="sp-vals"><span><b id="lightVal">—</b> lux</span></div>
+      </div>
+    </div>
+  </aside>
+
+  <!-- Нижняя панель управления -->
+  <footer class="hud-bottom">
+    <div class="detected" id="detectedStrip">
+      <span class="detected-empty">наведите камеру на объект</span>
+    </div>
+    <div class="controls">
+      <button id="btnStart" class="btn btn-primary">
+        <svg viewBox="0 0 24 24" class="ico"><path d="M4 7h3l2-2h6l2 2h3v12H4z" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/><circle cx="12" cy="13" r="3.4" fill="none" stroke="currentColor" stroke-width="1.8"/></svg>
+        <span>Включить камеру</span>
+      </button>
+      <button id="btnStop" class="btn btn-ghost hidden">Стоп</button>
+      <button id="btnStats" class="btn btn-ghost">Статистика</button>
+      <button id="btnInstall" class="btn btn-ghost hidden">Установить</button>
+    </div>
+  </footer>
+
+  <!-- Плавающие подписи объектов -->
+  <div id="labels" class="labels"></div>
+
+  <!-- Всплывающее уведомление -->
+  <div id="toast" class="toast"></div>
+</div>
+
+<!-- ЭКРАН 3: СТАТИСТИКА -->
+<div id="stats" class="screen stats">
+  <header class="stats-head">
+    <h2>Статистика распознавания</h2>
+    <button id="statsClose" class="btn btn-ghost">Закрыть</button>
+  </header>
+
+  <div class="stats-cards">
+    <div class="card"><div class="card-num" id="stTotal">0</div><div class="card-cap">всего объектов</div></div>
+    <div class="card"><div class="card-num" id="stClasses">0</div><div class="card-cap">классов найдено</div></div>
+    <div class="card"><div class="card-num" id="stSession">0с</div><div class="card-cap">время сессии</div></div>
+    <div class="card"><div class="card-num" id="stConf">0%</div><div class="card-cap">средняя уверенность</div></div>
+  </div>
+
+  <h3 class="stats-sub">Что удалось распознать</h3>
+  <div id="statsList" class="stats-list">
+    <p class="muted">пока ничего не распознано</p>
+  </div>
+
+  <h3 class="stats-sub">Модель</h3>
+  <div class="stats-model">
+    <p><b>COCO-SSD</b> — нейросеть на 80 классов объектов, работает <b>прямо на телефоне</b>, без интернета и без облака.</p>
+    <p class="muted">Классы: человек, машина, телефон, бутылка, чашка, ноутбук, кот, собака, стул, книга и другие.</p>
+  </div>
+
+  <button id="btnReset" class="btn btn-danger">Сбросить статистику</button>
+</div>
+
+<script type="module" src="./src/main.js"></script>
+</body>
+</html>

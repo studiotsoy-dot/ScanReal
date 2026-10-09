@@ -1,0 +1,58 @@
+# Сборка APK в облаке GitHub Actions.
+# Ничего устанавливать локально не нужно: APK соберётся на сервере GitHub
+# и появится в разделе Actions -> артефакт "ScanReal-debug-apk".
+
+name: Build Android APK
+
+on:
+  push:
+    branches: [ main, master ]
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Получить код
+        uses: actions/checkout@v4
+
+      - name: Установить Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Установить Java 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'temurin'
+          java-version: '17'
+
+      - name: Установить зависимости
+        run: npm ci || npm install
+
+      - name: Собрать веб-часть
+        run: npm run build
+
+      - name: Добавить Android-платформу Capacitor
+        run: |
+          npm install @capacitor/core@6 @capacitor/cli@6 @capacitor/android@6
+          npx cap add android
+          npx cap sync android
+
+      - name: Включить камеру и права в манифесте
+        run: node scripts/patch-manifest.mjs
+
+      - name: Собрать APK
+        run: |
+          cd android
+          chmod +x gradlew
+          ./gradlew assembleDebug --no-daemon
+
+      - name: Загрузить APK как артефакт
+        uses: actions/upload-artifact@v4
+        with:
+          name: ScanReal-debug-apk
+          path: android/app/build/outputs/apk/debug/*.apk
+          if-no-files-found: error

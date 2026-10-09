@@ -1,0 +1,22 @@
+{
+  "appId": "com.scanreal.app",
+  "appName": "ScanReal",
+  "webDir": "dist",
+  "bundledWebRuntime": false,
+  "android": {
+    "allowMixedContent": true,
+    "captureInput": true,
+    "webContentsDebuggingEnabled": true
+  },
+  "server": {
+    "androidScheme": "https"
+  },
+  "plugins": {
+    "SplashScreen": {
+      "launchShowDuration": 1200,
+      "backgroundColor": "#05070d",
+      "showSpinner": false,
+      "androidSplashResourceName": "splash"
+    }
+  }
+}
