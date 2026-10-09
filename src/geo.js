@@ -13,8 +13,8 @@
 
 const GEO_OPTS = {
   enableHighAccuracy: true,
-  timeout: 8000,
-  maximumAge: 60000,   // свежие координаты переиспользуем минуту
+  timeout: 15000,      // GPS в помещении «прогревается» долго
+  maximumAge: 30000,   // свежие координаты переиспользуем 30 секунд
 };
 
 let cachedFix = null;
@@ -105,6 +105,84 @@ export async function getPosition(force = false) {
 
   // --- Итог: координат нет, но это не ошибка приложения ---
   return null;
+}
+
+/**
+ * Непрерывное слежение за позицией.
+ * Решает главную проблему: разовый запрос часто падает по таймауту,
+ * а с watchPosition координаты приходят, как только GPS «прогреется».
+ * @param {(fix: GeoFix) => void} onFix   вызывается при каждом обновлении
+ * @param {(msg: string) => void} onError необязательный обработчик ошибок
+ * @returns {() => void} функция остановки слежения
+ */
+export async function watchPosition(onFix, onError) {
+  const plugin = await getNativePlugin();
+
+  // Нативный вариант (APK)
+  if (plugin) {
+    try {
+      const perm = await plugin.checkPermissions();
+      if (perm.location !== 'granted') {
+        const req = await plugin.requestPermissions();
+        if (req.location !== 'granted') {
+          if (onError) onError('разрешение на геолокацию не выдано');
+          return () => {};
+        }
+      }
+
+      const id = await plugin.watchPosition(
+        { enableHighAccuracy: true, timeout: 20000 },
+        (pos, err) => {
+          if (err) {
+            if (onError) onError(err.message || String(err));
+            return;
+          }
+          if (!pos || !pos.coords) return;
+          cachedFix = {
+            lat: pos.coords.latitude,
+            lon: pos.coords.longitude,
+            accuracy: pos.coords.accuracy ?? null,
+            at: Date.now(),
+            source: 'native',
+          };
+          lastError = null;
+          onFix(cachedFix);
+        }
+      );
+
+      return () => {
+        try { plugin.clearWatch({ id }); } catch { /* уже остановлено */ }
+      };
+    } catch (err) {
+      lastError = 'нативный watch: ' + (err?.message || err);
+    }
+  }
+
+  // Браузерный вариант
+  if (geoAvailable()) {
+    const id = navigator.geolocation.watchPosition(
+      (pos) => {
+        cachedFix = {
+          lat: pos.coords.latitude,
+          lon: pos.coords.longitude,
+          accuracy: pos.coords.accuracy ?? null,
+          at: Date.now(),
+          source: 'browser',
+        };
+        lastError = null;
+        onFix(cachedFix);
+      },
+      (err) => {
+        lastError = 'код ' + err.code + ': ' + err.message;
+        if (onError) onError(lastError);
+      },
+      GEO_OPTS
+    );
+    return () => navigator.geolocation.clearWatch(id);
+  }
+
+  if (onError) onError('геолокация недоступна');
+  return () => {};
 }
 
 /** Красивая строка координат для интерфейса. */

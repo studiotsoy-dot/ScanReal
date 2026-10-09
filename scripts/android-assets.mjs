@@ -62,7 +62,11 @@ function drawTarget(width, height, opts = {}) {
     withBg = true,
     scale = 1,
     corner = 0,
+    bright = false,     // усиленная яркость для иконок лаунчера
   } = opts;
+
+  // Множитель яркости линий и фона.
+  const k = bright ? 1.35 : 1;
 
   const buf = Buffer.alloc(width * H * 4);
   const cx = width / 2;
@@ -93,21 +97,23 @@ function drawTarget(width, height, opts = {}) {
           if (Math.hypot(dx, dy) > corner) continue;
         }
         const d = Math.hypot(x - cx, y - cy) / (Math.min(width, H) / 2);
-        const glow = Math.max(0, 1 - d) ** 2.2 * 0.26;
+        const glow = Math.max(0, 1 - d) ** 2.2 * (bright ? 0.60 : 0.26);
         const t = (x + y) / (width + H);
         put(x, y,
-          bg[0] + 12 * glow + t * 6,
-          bg[1] + 90 * glow + t * 10,
-          bg[2] + 150 * glow + t * 18,
+          Math.min(255, (bg[0] + 12 * glow + t * 6) * k),
+          Math.min(255, (bg[1] + 90 * glow + t * 10) * k),
+          Math.min(255, (bg[2] + 150 * glow + t * 18) * k),
           1);
       }
     }
   }
 
-  const cyan = [53, 224, 255];
-  const lime = [139, 255, 107];
+  // Яркие цвета линий: на иконке лаунчера должны читаться.
+  const cyan = bright ? [120, 240, 255] : [53, 224, 255];
+  const lime = bright ? [180, 255, 150] : [139, 255, 107];
 
-  const ringW = Math.max(1, R * 0.055);
+  // Линии на иконке толще — иначе тонкие кольца «исчезают» при малом размере.
+  const ringW = Math.max(1, R * (bright ? 0.085 : 0.055));
 
   // Два кольца с разрывами — как у прицела
   const rings = [
@@ -183,10 +189,10 @@ const mipmaps = [
 
 mipmaps.forEach(([folder, size]) => {
   const dir = join(androidRes, folder);
-  // Квадратная иконка: фон во весь размер, прицел с отступом под маску.
-  save(dir, 'ic_launcher.png', drawTarget(size, size, { scale: 0.62, withBg: true }));
-  save(dir, 'ic_launcher_round.png', drawTarget(size, size, { scale: 0.58, withBg: true, corner: size / 2 }));
-  save(dir, 'ic_launcher_foreground.png', drawTarget(size, size, { scale: 0.52, withBg: false }));
+  // Иконка: прицел крупный и яркий, чтобы читался на лаунчере.
+  save(dir, 'ic_launcher.png', drawTarget(size, size, { scale: 0.82, withBg: true, bright: true }));
+  save(dir, 'ic_launcher_round.png', drawTarget(size, size, { scale: 0.78, withBg: true, corner: size / 2, bright: true }));
+  save(dir, 'ic_launcher_foreground.png', drawTarget(size, size, { scale: 0.70, withBg: false, bright: true }));
 });
 
 /* 2. СПЛЭШ-ЭКРАНЫ — рисуем в 1:1, система не растянет */
@@ -206,9 +212,10 @@ const splashes = [
 ];
 
 splashes.forEach(([folder, w, h]) => {
-  // Прицел занимает ~30% меньшей стороны — с гарантией круглый.
-  const png = drawTarget(w, h, { scale: 0.3, withBg: true });
-  save(join(androidRes, folder), 'splash.png', png);
+  // Рисуем прицел БЕЗ фона: фон задаётся отдельно в XML.
+  // Имя scanreal_target — чтобы не конфликтовать со splash.xml.
+  const png = drawTarget(w, h, { scale: 0.3, withBg: false });
+  save(join(androidRes, folder), 'scanreal_target.png', png);
 });
 
 /* 3. ТЁМНЫЙ ФОН для темы приложения */

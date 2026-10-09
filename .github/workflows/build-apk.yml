@@ -51,6 +51,9 @@ jobs:
       - name: Настроить темы Android
         run: node scripts/patch-theme.mjs
 
+      - name: Сделать сплэш без растяжения
+        run: node scripts/fix-splash.mjs
+
       - name: Создать ключ подписи
         run: |
           mkdir -p android/keystore

@@ -5,7 +5,7 @@ import './styles.css';
 import { Detector, ruName } from './detector.js';
 import { Sensors } from './sensors.js';
 import { Sparkline } from './visual.js';
-import { getPosition, geoAvailable, geoLastError, formatCoords, mapLink, mapLinkForSession } from './geo.js';
+import { getPosition, watchPosition, geoAvailable, geoLastError, formatCoords, mapLink, mapLinkForSession } from './geo.js';
 import { diagnoseGeo } from './geodiag.js';
 import { ScanHistory, humanTime, formatTime, describeObjects, accuracyText } from './history.js';
 
@@ -159,7 +159,7 @@ async function startCamera() {
     running = true;
     stats.startedAt = stats.startedAt || Date.now();
     history.startSession();
-    requestGeo();          // координаты запрашиваем в фоне, не блокируя камеру
+    startGeoWatch();       // непрерывное слежение: координаты придут сами
 
     btnStart.classList.add('hidden');
     btnStop.classList.remove('hidden');
@@ -184,6 +184,7 @@ async function startCamera() {
 
 function stopCamera() {
   running = false;
+  stopGeoWatchNow();          // прекращаем слежение, когда камера выключена
   if (rafId) cancelAnimationFrame(rafId);
   if (stream) {
     stream.getTracks().forEach((t) => t.stop());
@@ -239,7 +240,41 @@ function frameMapper() {
 }
 
 /* ---------------------------------------------------------- ГЕОЛОКАЦИЯ */
-/** Запрашивает координаты в фоне. Не блокирует камеру, ошибки не показываем. */
+let stopGeoWatch = null;
+
+/**
+ * Запускает НЕПРЕРЫВНОЕ слежение за координатами.
+ * Разовый запрос часто падал по таймауту, пока GPS «прогревается».
+ * С watchPosition координаты приходят сами, как только появляются.
+ */
+async function startGeoWatch() {
+  if (stopGeoWatch) return;      // уже следим
+
+  try {
+    stopGeoWatch = await watchPosition(
+      (fix) => {
+        const first = !currentGeo;
+        currentGeo = fix;
+        const acc = fix.accuracy != null ? ` ±${Math.round(fix.accuracy)} м` : '';
+        if (first) toast(`Координаты получены${acc}`, 2500);
+      },
+      (msg) => {
+        console.warn('GPS:', msg);
+      }
+    );
+  } catch (err) {
+    console.warn('GPS: не удалось запустить слежение', err);
+  }
+}
+
+function stopGeoWatchNow() {
+  if (stopGeoWatch) {
+    try { stopGeoWatch(); } catch { /* уже остановлено */ }
+    stopGeoWatch = null;
+  }
+}
+
+/** Разовый запрос — для кнопки «Запросить сейчас». */
 async function requestGeo(force = false) {
   if (geoPending) return;
   geoPending = true;
@@ -250,7 +285,6 @@ async function requestGeo(force = false) {
       const acc = fix.accuracy != null ? ` ±${Math.round(fix.accuracy)} м` : '';
       toast(`Координаты получены${acc}`, 2200);
     } else if (force) {
-      // Пользователь запросил вручную — тут стоит объяснить, почему пусто.
       toast('Координаты недоступны: ' + (geoLastError() || 'нет сигнала GPS'), 4200);
     }
   } catch {
@@ -298,7 +332,11 @@ function renderHistory() {
       '<span>📍</span><span>Координаты ещё не получены. Они запросятся при включении камеры. ' +
       '<b id="geoRetry" style="text-decoration:underline;cursor:pointer">Запросить сейчас</b></span>';
     const retry = $('geoRetry');
-    if (retry) retry.addEventListener('click', () => requestGeo(true));
+    if (retry) retry.addEventListener('click', async () => {
+      toast('Ищем координаты…', 2000);
+      await requestGeo(true);     // разовая попытка
+      startGeoWatch();            // плюс постоянное слежение
+    });
   }
 
   const listEl = $('historyList');
@@ -643,11 +681,13 @@ btnReset.addEventListener('click', () => {
 window.addEventListener('resize', resizeOverlay);
 window.addEventListener('orientationchange', () => setTimeout(resizeOverlay, 250));
 
-// Останавливаем камеру, когда приложение уходит в фон — экономия батареи.
+// Останавливаем камеру и GPS, когда приложение уходит в фон — экономия батареи.
 document.addEventListener('visibilitychange', () => {
   if (document.hidden && running) {
     if (rafId) cancelAnimationFrame(rafId);
+    stopGeoWatchNow();          // GPS в фоне не нужен
   } else if (!document.hidden && running) {
+    startGeoWatch();            // возвращаемся — снова следим
     loop();
   }
 });
