@@ -3,7 +3,7 @@
 // Запускается в CI после `npx cap add android`.
 
 import { deflateSync } from 'node:zlib';
-import { writeFileSync, mkdirSync, existsSync } from 'node:fs';
+import { writeFileSync, mkdirSync, existsSync, readFileSync, readdirSync } from 'node:fs';
 import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
@@ -232,3 +232,37 @@ console.log('Ресурсы Android созданы: ' + count + ' файлов')
 console.log('  иконки: ' + (mipmaps.length * 3) + ' (5 плотностей x 3 вида)');
 console.log('  сплэши: ' + splashes.length + ' (портрет + ландшафт)');
 console.log('  цвета:  1');
+
+/* 4. СТРАХОВКА: перезаписываем ВСЕ возможные дефолтные сплэши Capacitor.
+   Capacitor может положить свою картинку под другим именем —
+   затираем всё, что похоже на его логотип. */
+const suspicious = [
+  'splash.png',
+  'capacitor_splash.png',
+  'splash_capacitor.png',
+  'ic_capacitor.png',
+  'capacitor.png',
+];
+
+let overwritten = 0;
+const drawableFolders = readdirSync(androidRes).filter((d) => d.startsWith('drawable'));
+
+drawableFolders.forEach((folder) => {
+  const full = join(androidRes, folder);
+  const ownPath = join(full, 'splash.png');
+
+  if (!existsSync(ownPath)) return;
+  const ownData = readFileSync(ownPath);
+
+  suspicious.forEach((name) => {
+    if (name === 'splash.png') return;      // свой файл не трогаем
+    const p = join(full, name);
+    if (existsSync(p)) {
+      writeFileSync(p, ownData);
+      overwritten++;
+    }
+  });
+});
+
+console.log('  Дефолтных картинок Capacitor перезаписано: ' + overwritten);
+console.log('  Папок drawable проверено: ' + drawableFolders.length);
