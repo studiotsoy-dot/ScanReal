@@ -22,7 +22,7 @@ if (xml.includes('android.permission.CAMERA')) {
 }
 
 const Q = String.fromCharCode(34);
-const perms = ['CAMERA', 'INTERNET', 'ACCESS_FINE_LOCATION'];
+const perms = ['CAMERA', 'INTERNET', 'ACCESS_FINE_LOCATION', 'ACCESS_COARSE_LOCATION'];
 
 const lines = perms.map(function (p) {
   return '    <uses-permission android:name=' + Q + 'android.permission.' + p + Q + ' />';

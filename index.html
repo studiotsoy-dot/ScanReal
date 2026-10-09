@@ -112,6 +112,7 @@
         <span>Включить камеру</span>
       </button>
       <button id="btnStop" class="btn btn-ghost hidden">Стоп</button>
+      <button id="btnHistory" class="btn btn-ghost">История</button>
       <button id="btnStats" class="btn btn-ghost">Статистика</button>
       <button id="btnInstall" class="btn btn-ghost hidden">Установить</button>
     </div>
@@ -150,6 +151,33 @@
   </div>
 
   <button id="btnReset" class="btn btn-danger">Сбросить статистику</button>
+</div>
+
+<!-- ЭКРАН 4: ИСТОРИЯ СКАНОВ -->
+<div id="history" class="screen stats">
+  <header class="stats-head">
+    <h2>История сканов</h2>
+    <button id="historyClose" class="btn btn-ghost">Закрыть</button>
+  </header>
+
+  <div class="stats-cards">
+    <div class="card"><div class="card-num" id="hTotal">0</div><div class="card-cap">записей</div></div>
+    <div class="card"><div class="card-num" id="hSessions">0</div><div class="card-cap">сессий</div></div>
+    <div class="card"><div class="card-num" id="hGeo">0</div><div class="card-cap">с координатами</div></div>
+    <div class="card"><div class="card-num" id="hDay">0</div><div class="card-cap">сегодня</div></div>
+  </div>
+
+  <div class="geo-status" id="geoStatus"></div>
+
+  <div class="history-actions">
+    <button id="btnExportJson" class="btn btn-ghost">Экспорт JSON</button>
+    <button id="btnExportCsv" class="btn btn-ghost">Экспорт CSV</button>
+    <button id="btnClearHistory" class="btn btn-ghost">Очистить</button>
+  </div>
+
+  <div id="historyList" class="history-list">
+    <p class="muted">пока нет записей — включите камеру и наведите на объект</p>
+  </div>
 </div>
 
 <script type="module" src="./src/main.js"></script>

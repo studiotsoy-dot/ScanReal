@@ -5,6 +5,8 @@ import './styles.css';
 import { Detector, ruName } from './detector.js';
 import { Sensors } from './sensors.js';
 import { Sparkline } from './visual.js';
+import { getPosition, geoAvailable, geoLastError, formatCoords, mapLink, mapLinkForSession } from './geo.js';
+import { ScanHistory, humanTime, formatTime, describeObjects, accuracyText } from './history.js';
 
 /* ------------------------------------------------------------ ССЫЛКИ DOM */
 const $ = (id) => document.getElementById(id);
@@ -40,6 +42,9 @@ const spBody = $('spBody');
 /* ------------------------------------------------------------------ СОСТОЯНИЕ */
 const detector = new Detector();
 const sensors = new Sensors();
+const history = new ScanHistory();
+let currentGeo = null;        // последние координаты
+let geoPending = false;       // идёт запрос координат
 
 let stream = null;
 let running = false;
@@ -152,6 +157,8 @@ async function startCamera() {
 
     running = true;
     stats.startedAt = stats.startedAt || Date.now();
+    history.startSession();
+    requestGeo();          // координаты запрашиваем в фоне, не блокируя камеру
 
     btnStart.classList.add('hidden');
     btnStop.classList.remove('hidden');
@@ -230,6 +237,115 @@ function frameMapper() {
   };
 }
 
+/* ---------------------------------------------------------- ГЕОЛОКАЦИЯ */
+/** Запрашивает координаты в фоне. Не блокирует камеру, ошибки не показываем. */
+async function requestGeo(force = false) {
+  if (geoPending) return;
+  geoPending = true;
+  try {
+    const fix = await getPosition(force);
+    if (fix) {
+      currentGeo = fix;
+      const acc = fix.accuracy != null ? ` ±${Math.round(fix.accuracy)} м` : '';
+      toast(`Координаты получены${acc}`, 2200);
+    } else if (force) {
+      // Пользователь запросил вручную — тут стоит объяснить, почему пусто.
+      toast('Координаты недоступны: ' + (geoLastError() || 'нет сигнала GPS'), 4200);
+    }
+  } catch {
+    /* молча: отсутствие GPS не должно мешать работе */
+  } finally {
+    geoPending = false;
+  }
+}
+
+/* ------------------------------------------------------------- ИСТОРИЯ */
+function openHistory() {
+  historyEl.classList.add('active');
+  renderHistory();
+}
+function closeHistory() { historyEl.classList.remove('active'); }
+
+function renderHistory() {
+  const sessions = history.sessions();
+  const total = history.count();
+  const withGeo = history.geoCount();
+
+  $('hTotal').textContent = total;
+  $('hSessions').textContent = sessions.length;
+  $('hGeo').textContent = withGeo;
+
+  const today = new Date().toDateString();
+  $('hDay').textContent = history.scans.filter(
+    (s) => new Date(s.time).toDateString() === today
+  ).length;
+
+  // Статус геолокации
+  const statusEl = $('geoStatus');
+  if (!geoAvailable() && !currentGeo) {
+    statusEl.className = 'geo-status warn';
+    statusEl.innerHTML = '<span>⚠</span><span>Геолокация недоступна на этом устройстве — записи сохраняются без координат</span>';
+  } else if (currentGeo) {
+    const src = currentGeo.source === 'native' ? 'GPS' : 'браузер';
+    statusEl.className = 'geo-status ok';
+    statusEl.innerHTML =
+      `<span>📍</span><span>Координаты: <b>${formatCoords(currentGeo)}</b> ` +
+      `${accuracyText(currentGeo.accuracy)} · источник: ${src}</span>`;
+  } else {
+    statusEl.className = 'geo-status warn';
+    statusEl.innerHTML =
+      '<span>📍</span><span>Координаты ещё не получены. Они запросятся при включении камеры. ' +
+      '<b id="geoRetry" style="text-decoration:underline;cursor:pointer">Запросить сейчас</b></span>';
+    const retry = $('geoRetry');
+    if (retry) retry.addEventListener('click', () => requestGeo(true));
+  }
+
+  const listEl = $('historyList');
+  if (!sessions.length) {
+    listEl.innerHTML = '<p class="muted">пока нет записей — включите камеру и наведите на объект</p>';
+    return;
+  }
+
+  listEl.innerHTML = sessions.map((s) => {
+    const geo = s.lastGeo;
+    const geoHtml = geo
+      ? `<div class="session-geo">
+           <span class="pin">📍</span>
+           <span>${formatCoords(geo)} ${accuracyText(geo.accuracy)}</span>
+           ${mapLink(geo) ? `<a href="${mapLink(geo)}" target="_blank" rel="noopener">на карте →</a>` : ''}
+         </div>`
+      : `<div class="session-geo"><span class="pin">📍</span><span>без координат</span></div>`;
+
+    const items = s.items.slice(-6).reverse().map((it) => `
+      <div class="scan-row">
+        <span class="scan-time">${formatTime(it.time)}</span>
+        <span class="scan-objs">${it.objects.map((o) => `${o.ru} ${o.s}%`).join(', ')}</span>
+      </div>`).join('');
+
+    return `
+      <div class="session-card">
+        <div class="session-head">
+          <span class="session-when">${humanTime(new Date(s.end).toISOString())}
+            <small>${formatTime(new Date(s.start).toISOString())}–${formatTime(new Date(s.end).toISOString())}</small>
+          </span>
+          <span class="session-count">${s.count} ${plural(s.count, 'скан', 'скана', 'сканов')}</span>
+        </div>
+        ${geoHtml}
+        <div class="session-objects">${describeObjects(s.objects)}</div>
+        ${s.items.length > 1 ? `<div class="session-items">${items}</div>` : ''}
+      </div>`;
+  }).join('');
+}
+
+/** Русские формы множественного числа. */
+function plural(n, one, few, many) {
+  const m10 = n % 10;
+  const m100 = n % 100;
+  if (m10 === 1 && m100 !== 11) return one;
+  if (m10 >= 2 && m10 <= 4 && (m100 < 10 || m100 >= 20)) return few;
+  return many;
+}
+
 /* ---------------------------------------------------------- ГЛАВНЫЙ ЦИКЛ */
 let frameCounter = 0;
 let fpsTime = performance.now();
@@ -265,6 +381,7 @@ async function loop() {
   drawPredictions(preds);
   updateChips(preds);
   accountStats(preds);
+  history.record(preds, currentGeo);
 }
 
 /* --------------------------------------------------------- ОТРИСОВКА РАМОК */
@@ -419,6 +536,29 @@ btnStart.addEventListener('click', startCamera);
 btnStop.addEventListener('click', stopCamera);
 btnStats.addEventListener('click', showStats);
 statsClose.addEventListener('click', hideStats);
+
+// --- История ---
+const btnHistory = $('btnHistory');
+const historyEl = $('history');
+const historyClose = $('historyClose');
+
+btnHistory.addEventListener('click', openHistory);
+historyClose.addEventListener('click', closeHistory);
+$('btnExportJson').addEventListener('click', () => {
+  if (!history.count()) { toast('История пуста'); return; }
+  history.exportJSON();
+  toast('Файл JSON сохранён');
+});
+$('btnExportCsv').addEventListener('click', () => {
+  if (!history.count()) { toast('История пуста'); return; }
+  history.exportCSV();
+  toast('Файл CSV сохранён');
+});
+$('btnClearHistory').addEventListener('click', () => {
+  history.clear();
+  renderHistory();
+  toast('История очищена');
+});
 // Панель датчиков: сворачивается в компактную кнопку, состояние запоминается.
 const SENSOR_KEY = 'scanreal.sensors.collapsed';
 const sensorPanel = $('sensorPanel');

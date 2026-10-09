@@ -37,7 +37,7 @@ jobs:
 
       - name: Добавить Android-платформу Capacitor
         run: |
-          npm install @capacitor/core@6 @capacitor/cli@6 @capacitor/android@6
+          npm install @capacitor/core@6 @capacitor/cli@6 @capacitor/android@6 @capacitor/geolocation@6
           npx cap add android
           npx cap sync android
 
