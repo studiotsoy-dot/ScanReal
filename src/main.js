@@ -419,10 +419,56 @@ btnStart.addEventListener('click', startCamera);
 btnStop.addEventListener('click', stopCamera);
 btnStats.addEventListener('click', showStats);
 statsClose.addEventListener('click', hideStats);
-toggleSensors.addEventListener('click', () => {
-  const collapsed = spBody.classList.toggle('collapsed');
+// Панель датчиков: сворачивается в компактную кнопку, состояние запоминается.
+const SENSOR_KEY = 'scanreal.sensors.collapsed';
+const sensorPanel = $('sensorPanel');
+const sensorReopen = $('sensorReopen');
+
+function setSensorsCollapsed(collapsed) {
+  spBody.classList.toggle('collapsed', collapsed);
   toggleSensors.textContent = collapsed ? '+' : '–';
+  toggleSensors.setAttribute('aria-label', collapsed ? 'Развернуть датчики' : 'Свернуть датчики');
+  sensorPanel.classList.toggle('is-collapsed', collapsed);
+  try { localStorage.setItem(SENSOR_KEY, collapsed ? '1' : '0'); } catch {}
+}
+
+/** Полностью убирает панель с экрана — для чистого обзора объекта. */
+function setSensorsHidden(hidden) {
+  sensorPanel.classList.toggle('is-hidden', hidden);
+  sensorReopen.classList.toggle('show', hidden);
+}
+
+toggleSensors.addEventListener('click', () => {
+  const nowCollapsed = !spBody.classList.contains('collapsed');
+  // Двойной клик по «–» на развёрнутой панели полностью её убирает.
+  if (!nowCollapsed) {
+    setSensorsCollapsed(true);
+    setSensorsHidden(true);
+    return;
+  }
+  setSensorsCollapsed(false);
 });
+
+sensorReopen.addEventListener('click', () => {
+  setSensorsHidden(false);
+  setSensorsCollapsed(false);
+});
+
+// Долгое нажатие на заголовок тоже прячет панель.
+let pressTimer = null;
+sensorPanel.addEventListener('touchstart', () => {
+  pressTimer = setTimeout(() => { setSensorsHidden(true); setSensorsCollapsed(true); }, 600);
+}, { passive: true });
+sensorPanel.addEventListener('touchend', () => clearTimeout(pressTimer), { passive: true });
+sensorPanel.addEventListener('touchmove', () => clearTimeout(pressTimer), { passive: true });
+
+// Восстанавливаем прошлое состояние; по умолчанию панель свёрнута,
+// чтобы не закрывать объект на экране.
+try {
+  setSensorsCollapsed(localStorage.getItem(SENSOR_KEY) !== '0');
+} catch {
+  setSensorsCollapsed(true);
+}
 btnReset.addEventListener('click', () => {
   stats.total = 0; stats.classes = {}; stats.confSum = 0; stats.confCount = 0;
   seenCooldown.clear();

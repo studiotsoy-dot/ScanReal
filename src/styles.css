@@ -127,7 +127,47 @@ html, body {
   border-radius: 14px;
   overflow: hidden;
   z-index: 12;
+  transition: width .25s ease, background .25s ease, opacity .25s ease, transform .25s ease;
 }
+
+/* Полностью скрытая панель: остаётся только маленькая кнопка вызова */
+.sensor-panel.is-hidden {
+  opacity: 0;
+  transform: translateX(24px);
+  pointer-events: none;
+}
+
+/* Кнопка возврата панели, когда она скрыта */
+.sensor-reopen {
+  position: absolute; right: 10px; top: calc(var(--safe-top) + 58px);
+  width: 44px; height: 44px;
+  display: none;
+  align-items: center; justify-content: center;
+  background: rgba(8, 13, 24, .62);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  color: var(--cyan);
+  font-size: 19px;
+  cursor: pointer;
+  z-index: 13;
+}
+.sensor-reopen.show { display: flex; }
+
+/* Свёрнутое состояние: узкая полупрозрачная плашка, не закрывает объект */
+.sensor-panel.is-collapsed {
+  width: 46px;
+  background: rgba(8, 13, 24, .55);
+}
+.sensor-panel.is-collapsed .sp-head {
+  padding: 9px 0;
+  justify-content: center;
+  border-bottom: none;
+}
+.sensor-panel.is-collapsed #spTitle { display: none; }
+.sensor-panel.is-collapsed .sp-toggle { font-size: 20px; }
+
 .sp-head {
   display: flex; align-items: center; justify-content: space-between;
   padding: 9px 11px;
@@ -138,8 +178,8 @@ html, body {
   background: none; border: none; color: var(--cyan);
   font-size: 17px; line-height: 1; cursor: pointer; padding: 0 3px;
 }
-.sp-body { padding: 4px 0 8px; max-height: 62vh; overflow-y: auto; }
-.sp-body.collapsed { display: none; }
+.sp-body { padding: 4px 0 8px; max-height: 46vh; overflow-y: auto; }
+.sp-body.collapsed { display: none !important; }
 
 .sp-item { padding: 8px 11px; border-bottom: 1px solid rgba(120,200,255,.08); }
 .sp-item:last-child { border-bottom: none; }

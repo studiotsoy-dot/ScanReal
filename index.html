@@ -54,14 +54,17 @@
     </div>
   </header>
 
-  <!-- Правая панель датчиков -->
-  <aside id="sensorPanel" class="sensor-panel">
+  <!-- Кнопка возврата панели датчиков -->
+  <button id="sensorReopen" class="sensor-reopen" aria-label="Показать датчики">◧</button>
+
+  <!-- Правая панель датчиков: свёрнута по умолчанию, чтобы не закрывать объект -->
+  <aside id="sensorPanel" class="sensor-panel is-collapsed">
     <div class="sp-head">
-      <span>ДАТЧИКИ</span>
-      <button id="toggleSensors" class="sp-toggle" aria-label="Свернуть датчики">–</button>
+      <span id="spTitle">ДАТЧИКИ</span>
+      <button id="toggleSensors" class="sp-toggle" aria-label="Развернуть датчики">+</button>
     </div>
 
-    <div class="sp-body" id="spBody">
+    <div class="sp-body collapsed" id="spBody">
       <div class="sp-item">
         <div class="sp-label">Наклон (акселерометр)</div>
         <div class="sp-vals">
