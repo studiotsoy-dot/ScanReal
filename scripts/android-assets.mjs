@@ -213,8 +213,9 @@ const splashes = [
 
 splashes.forEach(([folder, w, h]) => {
   // Готовая картинка нужного размера: тёмный фон + прицел по центру.
-  // Пропорции уже правильные в самом файле — растягивать нечего.
-  const png = drawTarget(w, h, { scale: 0.3, withBg: true });
+  // scale 0.62 = прицел занимает ~62% меньшей стороны.
+  // Было 0.30 — прицел выглядел крошечной точкой (13% экрана).
+  const png = drawTarget(w, h, { scale: 0.62, withBg: true, bright: true });
   save(join(androidRes, folder), 'splash.png', png);
 });
 
