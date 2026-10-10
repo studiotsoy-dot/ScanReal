@@ -1,14 +1,11 @@
-﻿// ScanReal - сплэш максимально надёжным способом.
+// ScanReal - сплэш как ЧИСТЫЙ ТЁМНЫЙ ФОН, без картинки.
 //
-// Почему не layer-list с bitmap: AAPT2 на CI падает на вложенном
-// <bitmap> без указания плотности, а диагностировать это вслепую дорого.
-//
-// Решение проще и надёжнее:
-//   splash.png  - готовая картинка НУЖНОГО размера (фон + прицел).
-//   Тема задаёт android:windowBackground, а не растягивающий background.
-//   Пропорции соблюдены уже в самом файле - растягивать нечего.
+// Android растягивает splash.png под экран. Пропорции телефонов разные
+// (9:19.5, 9:20, 9:21), поэтому картинка на части устройств вытягивается.
+// Однотонный фон исказить невозможно.
+// Прицел остаётся на иконке приложения - там он выглядит правильно.
 
-import { writeFileSync, mkdirSync, existsSync, readdirSync } from "node:fs";
+import { writeFileSync, mkdirSync, existsSync, readdirSync, rmSync } from "node:fs";
 import { join, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -22,7 +19,7 @@ if (!existsSync(res)) {
 
 const Q = String.fromCharCode(34);
 
-// 1. Тёмный цвет фона.
+// 1. Тёмный цвет фона
 const valuesDir = join(res, "values");
 mkdirSync(valuesDir, { recursive: true });
 writeFileSync(join(valuesDir, "colors.xml"), [
@@ -33,23 +30,48 @@ writeFileSync(join(valuesDir, "colors.xml"), [
   "",
 ].join("\n"), "utf8");
 
-// 2. Убираем XML-слой, если он остался от прошлой сборки.
-const folders = readdirSync(res).filter(function (d) { return d.indexOf("drawable") === 0; });
-let cleaned = 0;
-folders.forEach(function (folder) {
-  const xml = join(res, folder, "splash.xml");
-  if (existsSync(xml)) {
-    // Перезаписываем пустым layer-list без bitmap - не ломает сборку.
-    writeFileSync(xml, [
-      "<?xml version=" + Q + "1.0" + Q + " encoding=" + Q + "utf-8" + Q + "?>",
-      "<selector xmlns:android=" + Q + "http://schemas.android.com/apk/res/android" + Q + ">",
-      "    <item android:drawable=" + Q + "@color/scanreal_background" + Q + " />",
-      "</selector>",
-      "",
-    ].join("\n"), "utf8");
-    cleaned++;
+// 2. splash.xml - ссылка на цвет, без картинки
+const splashXml = [
+  "<?xml version=" + Q + "1.0" + Q + " encoding=" + Q + "utf-8" + Q + "?>",
+  "<selector xmlns:android=" + Q + "http://schemas.android.com/apk/res/android" + Q + ">",
+  "    <item android:drawable=" + Q + "@color/scanreal_background" + Q + " />",
+  "</selector>",
+  "",
+].join("\n");
+
+// 3. Папки drawable: создаём нужные, кладём splash.xml, убираем картинку.
+// Список фиксированный — генератор картинок сплэша больше не создаёт,
+// поэтому папки могут отсутствовать.
+const drawableDirs = [
+  'drawable',
+  'drawable-port-mdpi', 'drawable-port-hdpi', 'drawable-port-xhdpi',
+  'drawable-port-xxhdpi', 'drawable-port-xxxhdpi',
+  'drawable-land-mdpi', 'drawable-land-hdpi', 'drawable-land-xhdpi',
+  'drawable-land-xxhdpi', 'drawable-land-xxxhdpi',
+];
+
+let xmlWritten = 0;
+let pngRemoved = 0;
+
+drawableDirs.forEach(function (folder) {
+  const full = join(res, folder);
+  mkdirSync(full, { recursive: true });
+
+  writeFileSync(join(full, 'splash.xml'), splashXml, 'utf8');
+  xmlWritten++;
+
+  // Картинку убираем: она перекрывала бы фон и растягивалась.
+  const png = join(full, 'splash.png');
+  if (existsSync(png)) {
+    try {
+      rmSync(png, { force: true });
+      pngRemoved++;
+    } catch (err) {
+      console.warn('не удалить ' + folder + '/splash.png');
+    }
   }
 });
 
-console.log("XML-слоёв упрощено: " + cleaned);
-console.log("Фон: #03050A");
+console.log('splash.xml записан в ' + xmlWritten + ' папок');
+console.log('splash.png удалён: ' + pngRemoved);
+console.log('Сплэш: сплошной тёмный фон #03050A, без картинки');

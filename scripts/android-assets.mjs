@@ -121,15 +121,30 @@ function drawTarget(width, height, opts = {}) {
     { r: R * 0.50, w: ringW * 0.72, dash: 0.30, off: 0.5 },
   ];
 
+  // Сглаженная точка: закрашиваем с плавным краем, чтобы линии
+  // не выглядели «дискретными» (ступеньками из отдельных пикселей).
+  const putAA = (x, y, col, alpha) => {
+    const x0 = Math.floor(x);
+    const y0 = Math.floor(y);
+    const fx = x - x0;
+    const fy = y - y0;
+    // Распределяем яркость по 4 соседним пикселям (билинейная фильтрация).
+    put(x0, y0, col[0], col[1], col[2], alpha * (1 - fx) * (1 - fy));
+    put(x0 + 1, y0, col[0], col[1], col[2], alpha * fx * (1 - fy));
+    put(x0, y0 + 1, col[0], col[1], col[2], alpha * (1 - fx) * fy);
+    put(x0 + 1, y0 + 1, col[0], col[1], col[2], alpha * fx * fy);
+  };
+
   rings.forEach((ring) => {
     const steps = Math.round(ring.r * 8 + 500);
     for (let i = 0; i < steps; i++) {
       const ang = (i / steps) * Math.PI * 2;
       const phase = ((i / steps) + ring.off) % 1;
       if (phase > ring.dash) continue;
-      for (let t = -ring.w / 2; t <= ring.w / 2; t += 0.4) {
+      // Шаг 0.25 px + сглаживание = сплошная ровная линия.
+      for (let t = -ring.w / 2; t <= ring.w / 2; t += 0.25) {
         const rr = ring.r + t;
-        put(cx + Math.cos(ang) * rr, cy + Math.sin(ang) * rr, cyan[0], cyan[1], cyan[2], 0.95);
+        putAA(cx + Math.cos(ang) * rr, cy + Math.sin(ang) * rr, cyan, 0.95);
       }
     }
   });
@@ -139,24 +154,29 @@ function drawTarget(width, height, opts = {}) {
   const tickW = Math.max(1, R * 0.045);
   const tickR = R * 1.02;
   [[0, -1], [0, 1], [-1, 0], [1, 0]].forEach(([dx, dy]) => {
-    for (let l = 0; l < tickLen; l++) {
+    for (let l = 0; l < tickLen; l += 0.25) {
       const px = cx + dx * (tickR - l);
       const py = cy + dy * (tickR - l);
       const fade = 0.35 + (l / tickLen) * 0.6;
-      for (let w = -tickW / 2; w <= tickW / 2; w += 0.4) {
-        if (dx === 0) put(px + w, py, cyan[0], cyan[1], cyan[2], fade);
-        else put(px, py + w, cyan[0], cyan[1], cyan[2], fade);
+      for (let w = -tickW / 2; w <= tickW / 2; w += 0.25) {
+        if (dx === 0) putAA(px + w, py, cyan, fade);
+        else putAA(px, py + w, cyan, fade);
       }
     }
   });
 
-  // Центральная точка
+  // Центральная точка — со сглаженным краем
   const coreR = R * 0.13;
-  for (let y = -Math.ceil(coreR) - 2; y <= Math.ceil(coreR) + 2; y++) {
-    for (let x = -Math.ceil(coreR) - 2; x <= Math.ceil(coreR) + 2; x++) {
+  for (let y = -Math.ceil(coreR) - 3; y <= Math.ceil(coreR) + 3; y++) {
+    for (let x = -Math.ceil(coreR) - 3; x <= Math.ceil(coreR) + 3; x++) {
       const d = Math.hypot(x, y);
-      if (d <= coreR) put(cx + x, cy + y, lime[0], lime[1], lime[2], 1);
-      else if (d <= coreR + 1.4) put(cx + x, cy + y, lime[0], lime[1], lime[2], 0.3);
+      if (d <= coreR - 0.5) {
+        putAA(cx + x, cy + y, lime, 1);
+      } else if (d <= coreR + 1.2) {
+        // Плавный переход к фону вместо резкой границы.
+        const a = Math.max(0, (coreR + 1.2 - d) / 1.7);
+        putAA(cx + x, cy + y, lime, a);
+      }
     }
   }
 
@@ -218,13 +238,10 @@ const splashes = [
   ['drawable-land-xxxhdpi', 1600, 720],
 ];
 
-splashes.forEach(([folder, w, h]) => {
-  // Готовая картинка нужного размера: тёмный фон + прицел по центру.
-  // scale 0.62 = прицел занимает ~62% меньшей стороны.
-  // Было 0.30 — прицел выглядел крошечной точкой (13% экрана).
-  const png = drawTarget(w, h, { scale: 0.62, withBg: true, bright: true });
-  save(join(androidRes, folder), 'splash.png', png);
-});
+// Картинку сплэша НЕ создаём: Android её растягивает под экран,
+// и прицел превращается в овал. Сплэш делаем сплошным тёмным фоном
+// (см. fix-splash.mjs). Прицел остаётся на иконке приложения.
+console.log('Сплэш: картинка не создаётся (используется сплошной фон)');
 
 /* 3. ТЁМНЫЙ ФОН для темы приложения */
 const bgDir = join(androidRes, 'values');

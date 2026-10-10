@@ -71,6 +71,42 @@ export class ScanHistory {
     return 1;
   }
 
+  /**
+   * Дозаполняет координаты в последних записях без GPS.
+   * Нужно потому, что GPS «прогревается» дольше, чем идёт первый скан:
+   * объекты уже распознаны, а координат ещё нет. Когда они появляются —
+   * подставляем их в свежие записи этой сессии.
+   * @param {Object} geo координаты
+   * @param {number} maxAgeMs насколько старые записи обновлять
+   * @returns {number} сколько записей обновлено
+   */
+  attachGeo(geo, maxAgeMs = 120000) {
+    if (!geo) return 0;
+    const now = Date.now();
+    let updated = 0;
+
+    // Идём с конца: свежие записи важнее.
+    for (let i = this.scans.length - 1; i >= 0; i--) {
+      const s = this.scans[i];
+      const age = now - new Date(s.time).getTime();
+      if (age > maxAgeMs) break;          // старые не трогаем
+      if (s.geo) continue;                 // уже есть координаты
+
+      s.geo = {
+        lat: geo.lat,
+        lon: geo.lon,
+        accuracy: geo.accuracy ?? null,
+        source: geo.source,
+        // Помечаем, что координаты привязаны позже, а не в момент скана.
+        attached: true,
+      };
+      updated++;
+    }
+
+    if (updated) this._save();
+    return updated;
+  }
+
   /** Все сканы, новые сверху. */
   all() {
     return this.scans.slice().reverse();

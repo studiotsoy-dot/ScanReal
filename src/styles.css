@@ -331,6 +331,19 @@ html, body {
 .geo-status.warn { color: var(--amber); border-color: rgba(255,193,77,.3); }
 .geo-status b { color: var(--text); }
 
+/* Кликабельная кнопка запроса координат */
+.geo-retry {
+  color: var(--cyan);
+  border-bottom: 1px dashed var(--cyan);
+  cursor: pointer;
+  padding: 2px 1px;
+  font-weight: 600;
+  user-select: none;
+  -webkit-tap-highlight-color: transparent;
+  display: inline-block;
+}
+.geo-retry:active { opacity: .55; }
+
 .history-actions { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 20px; }
 .history-actions .btn { padding: 9px 14px; font-size: 13px; }
 

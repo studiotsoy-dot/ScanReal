@@ -257,6 +257,13 @@ async function startGeoWatch() {
         currentGeo = fix;
         const acc = fix.accuracy != null ? ` ±${Math.round(fix.accuracy)} м` : '';
         if (first) toast(`Координаты получены${acc}`, 2500);
+
+        // Привязываем координаты к сканам, сделанным до появления GPS.
+        const filled = history.attachGeo(fix);
+        if (filled > 0) {
+          console.log('GPS: координаты привязаны к ' + filled + ' записям');
+          if (historyEl.classList.contains('active')) renderHistory();
+        }
       },
       (msg) => {
         console.warn('GPS:', msg);
@@ -295,6 +302,49 @@ async function requestGeo(force = false) {
 }
 
 /* ------------------------------------------------------------- ИСТОРИЯ */
+/**
+ * Рисует строку статуса GPS.
+ * ВАЖНО: кнопка создаётся ОДИН раз и вешается на постоянный обработчик —
+ * раньше innerHTML пересоздавал её, и клик не срабатывал.
+ */
+function renderGeoStatus() {
+  const el = $('geoStatus');
+  if (!el) return;
+
+  if (currentGeo) {
+    const src = currentGeo.source === 'native' ? 'GPS' : 'браузер';
+    el.className = 'geo-status ok';
+    el.innerHTML =
+      '<span>📍</span><span>Координаты: <b>' + formatCoords(currentGeo) + '</b> ' +
+      accuracyText(currentGeo.accuracy) + ' · источник: ' + src + '</span>';
+    return;
+  }
+
+  if (!geoAvailable()) {
+    el.className = 'geo-status warn';
+    el.innerHTML = '<span>⚠</span><span>Геолокация недоступна на этом устройстве — ' +
+      'записи сохраняются без координат</span>';
+    return;
+  }
+
+  // Координат пока нет — показываем рабочую кнопку запроса.
+  el.className = 'geo-status warn';
+  el.innerHTML = '<span>📍</span><span>Координаты ещё не получены. ' +
+    '<b id="geoRetry" class="geo-retry">Запросить сейчас</b></span>';
+
+  const btn = $('geoRetry');
+  if (btn) {
+    btn.addEventListener('click', async (ev) => {
+      ev.preventDefault();
+      btn.textContent = 'ищем…';
+      toast('Определяем координаты…', 2500);
+      await requestGeo(true);
+      startGeoWatch();
+      renderGeoStatus();       // обновляем надпись после попытки
+    });
+  }
+}
+
 function openHistory() {
   historyEl.classList.add('active');
   renderHistory();
@@ -316,28 +366,7 @@ function renderHistory() {
   ).length;
 
   // Статус геолокации
-  const statusEl = $('geoStatus');
-  if (!geoAvailable() && !currentGeo) {
-    statusEl.className = 'geo-status warn';
-    statusEl.innerHTML = '<span>⚠</span><span>Геолокация недоступна на этом устройстве — записи сохраняются без координат</span>';
-  } else if (currentGeo) {
-    const src = currentGeo.source === 'native' ? 'GPS' : 'браузер';
-    statusEl.className = 'geo-status ok';
-    statusEl.innerHTML =
-      `<span>📍</span><span>Координаты: <b>${formatCoords(currentGeo)}</b> ` +
-      `${accuracyText(currentGeo.accuracy)} · источник: ${src}</span>`;
-  } else {
-    statusEl.className = 'geo-status warn';
-    statusEl.innerHTML =
-      '<span>📍</span><span>Координаты ещё не получены. Они запросятся при включении камеры. ' +
-      '<b id="geoRetry" style="text-decoration:underline;cursor:pointer">Запросить сейчас</b></span>';
-    const retry = $('geoRetry');
-    if (retry) retry.addEventListener('click', async () => {
-      toast('Ищем координаты…', 2000);
-      await requestGeo(true);     // разовая попытка
-      startGeoWatch();            // плюс постоянное слежение
-    });
-  }
+  renderGeoStatus();
 
   const listEl = $('historyList');
   if (!sessions.length) {
