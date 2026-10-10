@@ -156,6 +156,11 @@ async function startCamera() {
     video.srcObject = stream;
     await video.play();
 
+    // Показываем видео ТОЛЬКО когда камера отдаёт кадры.
+    // До этого <video> скрыт — иначе Android рисует свою заглушку
+    // с иконкой play, растянутой по экрану.
+    video.classList.add('live');
+
     running = true;
     stats.startedAt = stats.startedAt || Date.now();
     history.startSession();
@@ -188,6 +193,7 @@ async function startCamera() {
 function stopCamera() {
   running = false;
   stopGeoWatchNow();          // прекращаем слежение, когда камера выключена
+  video.classList.remove('live');   // прячем видео -> снова виден наш фон
   if (rafId) cancelAnimationFrame(rafId);
   if (stream) {
     stream.getTracks().forEach((t) => t.stop());

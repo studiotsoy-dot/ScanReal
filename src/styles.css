@@ -85,11 +85,37 @@ html, body {
 /* ------------------------------------------------------------ ГЛАВНЫЙ ЭКРАН */
 .app { background: #000; z-index: 10; }
 
+/* Фон главного экрана, пока камера выключена.
+   Раньше здесь была заглушка <video> от Android — серая, с растянутой
+   иконкой play. Теперь это спокойный тёмный фон с лёгким свечением. */
+.app::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background:
+    radial-gradient(circle at 50% 42%, rgba(53, 224, 255, .10), transparent 58%),
+    radial-gradient(circle at 50% 100%, rgba(139, 255, 107, .05), transparent 50%),
+    #03050A;
+  z-index: 0;
+  pointer-events: none;
+}
+
 #video {
   position: absolute; inset: 0;
   width: 100%; height: 100%;
   object-fit: cover;
   background: #000;
+  /* ПРИЧИНА «вытянутой кнопки play»: пока у <video> нет источника,
+     Android WebView рисует СВОЮ заглушку — серый фон с иконкой play,
+     растянутой по размеру элемента. Скрываем видео до включения камеры. */
+  opacity: 0;
+  visibility: hidden;
+  transition: opacity .25s ease;
+}
+/* Класс добавляется, когда камера реально начала отдавать кадры. */
+#video.live {
+  opacity: 1;
+  visibility: visible;
 }
 #overlay {
   position: absolute; inset: 0;
