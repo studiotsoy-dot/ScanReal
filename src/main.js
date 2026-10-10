@@ -294,6 +294,15 @@ async function requestGeo(force = false) {
       currentGeo = fix;
       const acc = fix.accuracy != null ? ` ±${Math.round(fix.accuracy)} м` : '';
       toast(`Координаты получены${acc}`, 2200);
+
+      // КЛЮЧЕВОЕ: привязываем координаты к уже сделанным сканам.
+      // Раньше это делал только watchPosition, поэтому записи оставались
+      // «без координат», хотя GPS их находил.
+      const filled = history.attachGeo(fix);
+      if (filled > 0) {
+        toast(`Координаты привязаны к ${filled} записям`, 2600);
+        if (historyEl.classList.contains('active')) renderHistory();
+      }
     } else if (force) {
       toast('Координаты недоступны: ' + (geoLastError() || 'нет сигнала GPS'), 4200);
     }

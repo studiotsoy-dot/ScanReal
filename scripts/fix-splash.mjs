@@ -1,9 +1,9 @@
-// ScanReal - сплэш как ЧИСТЫЙ ТЁМНЫЙ ФОН, без картинки.
+// ScanReal - стартовый экран как СПЛОШНОЙ ТЁМНЫЙ ФОН.
 //
-// Android растягивает splash.png под экран. Пропорции телефонов разные
-// (9:19.5, 9:20, 9:21), поэтому картинка на части устройств вытягивается.
-// Однотонный фон исказить невозможно.
-// Прицел остаётся на иконке приложения - там он выглядит правильно.
+// Почему так: Android растягивает любую картинку сплэша под экран.
+// Пропорции телефонов разные (9:19.5, 9:20, 9:21), поэтому картинка
+// на части устройств вытягивается. Однотонный фон исказить нельзя.
+// Прицел остался на иконке приложения - там он выглядит правильно.
 
 import { writeFileSync, mkdirSync, existsSync, readdirSync, rmSync } from "node:fs";
 import { join, dirname } from "node:path";
@@ -19,7 +19,7 @@ if (!existsSync(res)) {
 
 const Q = String.fromCharCode(34);
 
-// 1. Тёмный цвет фона
+// 1. Цвет фона
 const valuesDir = join(res, "values");
 mkdirSync(valuesDir, { recursive: true });
 writeFileSync(join(valuesDir, "colors.xml"), [
@@ -39,15 +39,30 @@ const splashXml = [
   "",
 ].join("\n");
 
-// 3. Папки drawable: создаём нужные, кладём splash.xml, убираем картинку.
-// Список фиксированный — генератор картинок сплэша больше не создаёт,
-// поэтому папки могут отсутствовать.
+// 3. launch_screen.xml - layout стартового экрана.
+// Capacitor ищет файл по имени layoutName из capacitor.config.json.
+// Без него берётся дефолтный - с картинкой, которую растягивает Android.
+const layoutDir = join(res, "layout");
+mkdirSync(layoutDir, { recursive: true });
+writeFileSync(join(layoutDir, "launch_screen.xml"), [
+  "<?xml version=" + Q + "1.0" + Q + " encoding=" + Q + "utf-8" + Q + "?>",
+  "<LinearLayout xmlns:android=" + Q + "http://schemas.android.com/apk/res/android" + Q,
+  "    android:layout_width=" + Q + "match_parent" + Q,
+  "    android:layout_height=" + Q + "match_parent" + Q,
+  "    android:orientation=" + Q + "vertical" + Q,
+  "    android:background=" + Q + "@color/scanreal_background" + Q + " />",
+  "",
+].join("\n"), "utf8");
+
+console.log("launch_screen.xml создан: сплошной тёмный фон");
+
+// 4. Папки drawable: splash.xml, без картинок.
 const drawableDirs = [
-  'drawable',
-  'drawable-port-mdpi', 'drawable-port-hdpi', 'drawable-port-xhdpi',
-  'drawable-port-xxhdpi', 'drawable-port-xxxhdpi',
-  'drawable-land-mdpi', 'drawable-land-hdpi', 'drawable-land-xhdpi',
-  'drawable-land-xxhdpi', 'drawable-land-xxxhdpi',
+  "drawable",
+  "drawable-port-mdpi", "drawable-port-hdpi", "drawable-port-xhdpi",
+  "drawable-port-xxhdpi", "drawable-port-xxxhdpi",
+  "drawable-land-mdpi", "drawable-land-hdpi", "drawable-land-xhdpi",
+  "drawable-land-xxhdpi", "drawable-land-xxxhdpi",
 ];
 
 let xmlWritten = 0;
@@ -56,22 +71,16 @@ let pngRemoved = 0;
 drawableDirs.forEach(function (folder) {
   const full = join(res, folder);
   mkdirSync(full, { recursive: true });
-
-  writeFileSync(join(full, 'splash.xml'), splashXml, 'utf8');
+  writeFileSync(join(full, "splash.xml"), splashXml, "utf8");
   xmlWritten++;
 
-  // Картинку убираем: она перекрывала бы фон и растягивалась.
-  const png = join(full, 'splash.png');
+  const png = join(full, "splash.png");
   if (existsSync(png)) {
-    try {
-      rmSync(png, { force: true });
-      pngRemoved++;
-    } catch (err) {
-      console.warn('не удалить ' + folder + '/splash.png');
-    }
+    try { rmSync(png, { force: true }); pngRemoved++; }
+    catch (err) { /* останется - patch-theme обнулит */ }
   }
 });
 
-console.log('splash.xml записан в ' + xmlWritten + ' папок');
-console.log('splash.png удалён: ' + pngRemoved);
-console.log('Сплэш: сплошной тёмный фон #03050A, без картинки');
+console.log("splash.xml записан в " + xmlWritten + " папок");
+console.log("splash.png удалён: " + pngRemoved);
+console.log("Стартовый экран: сплошной тёмный фон #03050A");
