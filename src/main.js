@@ -292,7 +292,12 @@ function stopGeoWatchNow() {
 
 /** Разовый запрос — для кнопки «Запросить сейчас». */
 async function requestGeo(force = false) {
-  if (geoPending) return;
+  // Раньше здесь был молчаливый выход, и кнопка «мигала без результата».
+  // Теперь всегда сообщаем, что происходит.
+  if (geoPending) {
+    toast('Запрос координат уже выполняется, подождите…', 2200);
+    return null;
+  }
   geoPending = true;
   try {
     const fix = await getPosition(force);
@@ -302,18 +307,20 @@ async function requestGeo(force = false) {
       toast(`Координаты получены${acc}`, 2200);
 
       // КЛЮЧЕВОЕ: привязываем координаты к уже сделанным сканам.
-      // Раньше это делал только watchPosition, поэтому записи оставались
-      // «без координат», хотя GPS их находил.
       const filled = history.attachGeo(fix);
       if (filled > 0) {
-        toast(`Координаты привязаны к ${filled} записям`, 2600);
+        toast(`Координаты привязаны к ${filled} записям`, 3000);
         if (historyEl.classList.contains('active')) renderHistory();
+      } else {
+        toast('Координаты есть, но записей без них не найдено', 2600);
       }
     } else if (force) {
-      toast('Координаты недоступны: ' + (geoLastError() || 'нет сигнала GPS'), 4200);
+      toast('Координаты недоступны: ' + (geoLastError() || 'нет сигнала GPS'), 4500);
     }
-  } catch {
-    /* молча: отсутствие GPS не должно мешать работе */
+    return fix;
+  } catch (err) {
+    toast('Ошибка GPS: ' + (err?.message || 'неизвестная'), 4000);
+    return null;
   } finally {
     geoPending = false;
   }
@@ -354,22 +361,26 @@ function renderGeoStatus() {
   if (btn) {
     btn.addEventListener('click', async (ev) => {
       ev.preventDefault();
+      ev.stopPropagation();
+
+      // ВАЖНО: не вызываем renderGeoStatus() до конца операции —
+      // перерисовка уничтожала кнопку вместе с обработчиком.
       btn.textContent = 'ищем… (до 15 сек)';
-      toast('Определяем координаты, подождите…', 3000);
+      btn.style.opacity = '0.6';
+      toast('Определяем координаты, подождите до 15 секунд…', 4000);
 
-      // Сначала постоянное слежение, потом разовый запрос —
-      // так координаты поймаются в любом случае.
+      // Слежение + разовый запрос: координаты поймаются в любом случае.
       startGeoWatch();
-      await requestGeo(true);
+      const fix = await requestGeo(true);
 
-      if (currentGeo) {
-        btn.textContent = 'готово';
+      if (fix) {
+        // Координаты есть — блок сам перерисуется в «зелёное» состояние.
+        renderGeoStatus();
       } else {
+        // Не вышло — возвращаем кнопку в рабочее состояние.
         btn.textContent = 'не удалось — попробовать снова';
-        toast('GPS не ответил: ' + (geoLastError() || 'нет сигнала') +
-              '. Попробуйте на открытом месте.', 6000);
+        btn.style.opacity = '1';
       }
-      renderGeoStatus();
     });
   }
 }
