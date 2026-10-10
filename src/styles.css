@@ -82,6 +82,29 @@ html, body {
 }
 .boot-status { color: var(--muted); font-size: 12px; margin: 12px 0 0; min-height: 16px; }
 
+/* Подпись автора внизу экрана загрузки.
+   position: absolute считается от .boot (он position: fixed),
+   поэтому надпись всегда у самого низа экрана. */
+.boot-by {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: calc(var(--safe-bottom) + 34px);
+  text-align: center;
+  color: var(--cyan);
+  font-size: 12px;
+  letter-spacing: 2px;
+  font-weight: 600;
+  opacity: .8;
+  text-transform: none;
+  animation: byFade 1.6s ease-in-out infinite alternate;
+}
+
+@keyframes byFade {
+  from { opacity: .45; }
+  to   { opacity: .95; }
+}
+
 /* ------------------------------------------------------------ ГЛАВНЫЙ ЭКРАН */
 .app { background: #000; z-index: 10; }
 

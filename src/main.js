@@ -290,40 +290,53 @@ function stopGeoWatchNow() {
   }
 }
 
-/** Разовый запрос — для кнопки «Запросить сейчас». */
-async function requestGeo(force = false) {
-  // Раньше здесь был молчаливый выход, и кнопка «мигала без результата».
-  // Теперь всегда сообщаем, что происходит.
-  if (geoPending) {
-    toast('Запрос координат уже выполняется, подождите…', 2200);
-    return null;
-  }
-  geoPending = true;
-  try {
-    const fix = await getPosition(force);
-    if (fix) {
-      currentGeo = fix;
-      const acc = fix.accuracy != null ? ` ±${Math.round(fix.accuracy)} м` : '';
-      toast(`Координаты получены${acc}`, 2200);
+/**
+ * Разовый запрос — для кнопки «Запросить сейчас».
+ *
+ * ВАЖНО: если запрос уже идёт (например, его запустил старт камеры),
+ * НЕ возвращаем null сразу — иначе кнопка мгновенно писала «не удалось»,
+ * хотя координаты в этот момент как раз добывались.
+ * Вместо этого ждём тот же самый запрос и отдаём его результат.
+ */
+let geoInflight = null;
 
-      // КЛЮЧЕВОЕ: привязываем координаты к уже сделанным сканам.
-      const filled = history.attachGeo(fix);
-      if (filled > 0) {
-        toast(`Координаты привязаны к ${filled} записям`, 3000);
-        if (historyEl.classList.contains('active')) renderHistory();
-      } else {
-        toast('Координаты есть, но записей без них не найдено', 2600);
-      }
-    } else if (force) {
-      toast('Координаты недоступны: ' + (geoLastError() || 'нет сигнала GPS'), 4500);
-    }
-    return fix;
-  } catch (err) {
-    toast('Ошибка GPS: ' + (err?.message || 'неизвестная'), 4000);
-    return null;
-  } finally {
-    geoPending = false;
+async function requestGeo(force = false) {
+  if (geoInflight) {
+    // Ждём уже выполняющийся запрос — он и будет ответом.
+    return geoInflight;
   }
+
+  geoInflight = (async () => {
+    try {
+      const fix = await getPosition(force);
+      if (fix) {
+        currentGeo = fix;
+        const acc = fix.accuracy != null ? ` ±${Math.round(fix.accuracy)} м` : '';
+        toast(`Координаты получены${acc}`, 2200);
+
+        // КЛЮЧЕВОЕ: привязываем координаты к уже сделанным сканам.
+        const filled = history.attachGeo(fix);
+        if (filled > 0) {
+          toast(`Координаты привязаны к ${filled} записям`, 3000);
+          if (historyEl.classList.contains('active')) renderHistory();
+        } else {
+          toast('Координаты есть, но записей без них не найдено', 2600);
+        }
+      } else if (force) {
+        toast('Координаты недоступны: ' + (geoLastError() || 'нет сигнала GPS'), 4500);
+      }
+      return fix;
+    } catch (err) {
+      toast('Ошибка GPS: ' + (err?.message || 'неизвестная'), 4000);
+      return null;
+    } finally {
+      geoPending = false;
+      geoInflight = null;
+    }
+  })();
+
+  geoPending = true;
+  return geoInflight;
 }
 
 /* ------------------------------------------------------------- ИСТОРИЯ */
@@ -365,9 +378,9 @@ function renderGeoStatus() {
 
       // ВАЖНО: не вызываем renderGeoStatus() до конца операции —
       // перерисовка уничтожала кнопку вместе с обработчиком.
-      btn.textContent = 'ищем… (до 15 сек)';
+      btn.textContent = 'ищем… (до 20 сек)';
       btn.style.opacity = '0.6';
-      toast('Определяем координаты, подождите до 15 секунд…', 4000);
+      toast('Определяем координаты. В помещении это может занять до 20 секунд…', 5000);
 
       // Слежение + разовый запрос: координаты поймаются в любом случае.
       startGeoWatch();
