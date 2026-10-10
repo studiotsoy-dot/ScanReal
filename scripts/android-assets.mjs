@@ -189,26 +189,33 @@ const mipmaps = [
 
 mipmaps.forEach(([folder, size]) => {
   const dir = join(androidRes, folder);
-  // Иконка: прицел крупный и яркий, чтобы читался на лаунчере.
-  save(dir, 'ic_launcher.png', drawTarget(size, size, { scale: 0.82, withBg: true, bright: true }));
-  save(dir, 'ic_launcher_round.png', drawTarget(size, size, { scale: 0.78, withBg: true, corner: size / 2, bright: true }));
-  save(dir, 'ic_launcher_foreground.png', drawTarget(size, size, { scale: 0.70, withBg: false, bright: true }));
+  // ВАЖНО: фон ТЁМНЫЙ во всех вариантах иконки.
+  // Прозрачный foreground Android кладёт на белую подложку —
+  // светло-зелёный прицел на белом становится невидимым.
+  save(dir, 'ic_launcher.png', drawTarget(size, size, { scale: 0.72, withBg: true, bright: true }));
+  save(dir, 'ic_launcher_round.png', drawTarget(size, size, { scale: 0.68, withBg: true, corner: size / 2, bright: true }));
+  save(dir, 'ic_launcher_foreground.png', drawTarget(size, size, { scale: 0.60, withBg: true, bright: true }));
 });
 
-/* 2. СПЛЭШ-ЭКРАНЫ — рисуем в 1:1, система не растянет */
-// Пропорции телефона ~9:19.5. Рисуем точно в этом соотношении.
+/* 2. СПЛЭШ-ЭКРАНЫ
+   ГЛАВНОЕ: пропорции должны совпадать с реальным экраном телефона.
+   Современные телефоны — 9:20 (0.45). Если нарисовать 3:5 (0.60),
+   Android растянет картинку под экран, и прицел станет овалом.
+   Поэтому рисуем строго 9:20. */
 const splashes = [
-  ['drawable', 480, 1040],
-  ['drawable-port-mdpi', 320, 480],
-  ['drawable-port-hdpi', 480, 800],
-  ['drawable-port-xhdpi', 720, 1280],
-  ['drawable-port-xxhdpi', 960, 1600],
-  ['drawable-port-xxxhdpi', 1280, 1920],
-  ['drawable-land-mdpi', 480, 320],
-  ['drawable-land-hdpi', 800, 480],
-  ['drawable-land-xhdpi', 1280, 720],
-  ['drawable-land-xxhdpi', 1600, 960],
-  ['drawable-land-xxxhdpi', 1920, 1280],
+  // Портрет 9:20 — основной вариант для телефона
+  ['drawable', 540, 1200],
+  ['drawable-port-mdpi', 360, 800],
+  ['drawable-port-hdpi', 540, 1200],
+  ['drawable-port-xhdpi', 720, 1600],
+  ['drawable-port-xxhdpi', 1080, 2400],
+  ['drawable-port-xxxhdpi', 1080, 2400],
+  // Ландшафт 20:9
+  ['drawable-land-mdpi', 800, 360],
+  ['drawable-land-hdpi', 1200, 540],
+  ['drawable-land-xhdpi', 1600, 720],
+  ['drawable-land-xxhdpi', 1600, 720],
+  ['drawable-land-xxxhdpi', 1600, 720],
 ];
 
 splashes.forEach(([folder, w, h]) => {
