@@ -160,6 +160,9 @@ async function startCamera() {
     stats.startedAt = stats.startedAt || Date.now();
     history.startSession();
     startGeoWatch();       // непрерывное слежение: координаты придут сами
+    // Слежение может «молчать» до первого изменения позиции,
+    // поэтому сразу делаем разовый запрос — координаты будут уже на старте.
+    requestGeo();
 
     btnStart.classList.add('hidden');
     btnStop.classList.remove('hidden');
@@ -336,11 +339,22 @@ function renderGeoStatus() {
   if (btn) {
     btn.addEventListener('click', async (ev) => {
       ev.preventDefault();
-      btn.textContent = 'ищем…';
-      toast('Определяем координаты…', 2500);
-      await requestGeo(true);
+      btn.textContent = 'ищем… (до 15 сек)';
+      toast('Определяем координаты, подождите…', 3000);
+
+      // Сначала постоянное слежение, потом разовый запрос —
+      // так координаты поймаются в любом случае.
       startGeoWatch();
-      renderGeoStatus();       // обновляем надпись после попытки
+      await requestGeo(true);
+
+      if (currentGeo) {
+        btn.textContent = 'готово';
+      } else {
+        btn.textContent = 'не удалось — попробовать снова';
+        toast('GPS не ответил: ' + (geoLastError() || 'нет сигнала') +
+              '. Попробуйте на открытом месте.', 6000);
+      }
+      renderGeoStatus();
     });
   }
 }
